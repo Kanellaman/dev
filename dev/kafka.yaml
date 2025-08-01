@@ -1,0 +1,61 @@
+
+kind: Kafka
+metadata:
+  name: dev-kafka
+  namespace: dev
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  clientsCa:
+    generateCertificateAuthority: false
+  clusterCa:
+    generateCertificateAuthority: false
+  kafka:
+    version: 4.0.0
+    metadataVersion: 4.0-IV3
+    listeners:
+      - name: tls
+        port: 9093
+        tls: true
+        type: cluster-ip
+        authentication:
+          type: tls
+    authorization:
+      type: simple
+    config:
+      offsets.topic.replication.factor: 2
+      transaction.state.log.replication.factor: 2
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 2
+      min.insync.replicas: 1
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-metrics
+          key: kafka-metrics-config.yml
+  kafkaExporter:
+    groupRegex: ".*" 
+    topicRegex: ".*"
+    groupExcludeRegex: "^excluded-.*"
+    topicExcludeRegex: "^__.*|excluded-.*"
+    resources:
+      requests:
+        cpu: 200m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+    showAllOffsets: true
+    logging: debug
+    enableSaramaLogging: true
+    readinessProbe:
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+    livenessProbe:
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}

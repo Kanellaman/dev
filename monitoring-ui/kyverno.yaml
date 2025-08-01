@@ -1,0 +1,45 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: reflect-all-strimzi-secrets
+spec:
+  # Run this policy in the background so it can modify existing resources, not just newly created ones.
+  background: true
+  rules:
+    # --- Rule 2: Handles the 'akhq' Kafka User Secrets ---
+    - name: add-reflector-annotations-to-akhq-user-secrets
+      match:
+        all:
+          - resources:
+              kinds:
+                - Secret
+              name: "akhq-*"
+              selector:
+                matchLabels:
+                  strimzi.io/kind: "KafkaUser"
+      # If it matches, apply the exact same mutation.
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              +(reflector.v1.k8s.emberstack.com/reflection-allowed): "true"
+              +(reflector.v1.k8s.emberstack.com/reflection-auto-enabled): "true"
+              +(reflector.v1.k8s.emberstack.com/reflection-auto-namespaces): "management-ui"
+  
+    - name: add-reflector-push-annotations-to-ca-cert
+      match:
+        any:
+        - resources:
+            kinds:
+            - Secret
+            name: "*-cluster-ca-cert"
+            selector:
+              matchLabels:
+                strimzi.io/kind: "Kafka"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              +(reflector.v1.k8s.emberstack.com/reflection-allowed): "true"
+              +(reflector.v1.k8s.emberstack.com/reflection-auto-enabled): "true"
+              +(reflector.v1.k8s.emberstack.com/reflection-auto-namespaces): "management-ui"

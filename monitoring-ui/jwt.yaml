@@ -1,0 +1,12 @@
+# jwt-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: akhq-jwt-secret
+  namespace: management-ui
+type: Opaque
+data:
+  jwt-key: amZmczNtMWZwSjNjb3pxK3BKM29JUkRIWnJSRUtXNlVsSkdrMDN5RDV1Zz0=
+
+
+# kubectl patch secret akhq-jwt-secret -p "{\"data\":{\"jwt-key\":\"$(openssl rand -base64 32 | base64)\"}}"

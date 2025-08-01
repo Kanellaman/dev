@@ -1,0 +1,4 @@
+features:
+  reporting:
+    # -- Background scan interval
+    backgroundScanInterval: 15m

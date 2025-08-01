@@ -1,0 +1,16 @@
+{
+  "title": "UserEntry",
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId",
+    "username"
+  ]
+}

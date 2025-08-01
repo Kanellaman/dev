@@ -1,0 +1,12 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: dev-test-topic
+  namespace: dev # The same namespace as your Kafka cluster
+  labels:
+    strimzi.io/cluster: dev-kafka # The name of your Kafka cluster
+spec:
+  partitions: 4
+  replicas: 2
+  # config:
+  #   retention.days: 1 

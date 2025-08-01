@@ -1,0 +1,37 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: akhq-user-dev
+  namespace: dev
+  labels:
+    strimzi.io/cluster: dev-kafka
+spec:
+  authentication:
+    type: tls
+  authorization:
+    type: simple
+    acls:
+      - host: '*'
+        resource:
+          type: topic
+          name: '*'
+          patternType: literal
+        operation: All
+      - host: '*'
+        resource:
+          type: group
+          name: '*'
+          patternType: literal
+        operation: All
+      - host: '*'
+        resource:
+          type: cluster
+          name: kafka-cluster
+          patternType: literal
+        operation: Describe
+      - host: '*'
+        resource:
+          type: cluster
+          name: kafka-cluster
+          patternType: literal
+        operation: DescribeConfigs

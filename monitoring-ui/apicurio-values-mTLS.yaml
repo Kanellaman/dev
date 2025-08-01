@@ -1,0 +1,50 @@
+# apicurio-values.yaml for Production with SASL_SSL
+
+# Configure the application settings
+configuration:
+  # Use Kafka for persistence
+  persistence: "kafka"
+  # Define the connection properties for your Strimzi cluster
+  kafka:
+    bootstrap:
+      # Use the bootstrap server and port for SASL_SSL in prod
+      servers: "prod-kafka-kafka-internal-bootstrap.prod.svc.cluster.local:9093"
+    security:
+      # Change protocol to SASL_SSL
+      protocol: "SASL_SSL"
+    sasl:
+      # Add SASL mechanism and JAAS config
+      mechanism: "SCRAM-SHA-512"
+      jaas:
+        config: "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"akhq-user-prod\" password=\"${KAFKA_USER_PASSWORD}\";"
+    ssl:
+      # Truststore is still required for SASL_SSL
+      truststore:
+        location: "/etc/truststore/ca.p12"
+        password: "${KAFKA_TRUSTSTORE_PASSWORD}"
+        type: "PKCS12"
+
+# Mount the truststore secret into the Apicurio pod
+extraVolumes:
+  - name: truststore-volume
+    secret:
+      secretName: prod-kafka-cluster-ca-cert
+
+# Define the mount path inside the container
+extraVolumeMounts:
+  - name: truststore-volume
+    mountPath: "/etc/truststore"
+    readOnly: true
+
+# Provide the passwords from secrets as environment variables
+extraEnv:
+  - name: KAFKA_USER_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: akhq-user-prod
+        key: password
+  - name: KAFKA_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: prod-kafka-cluster-ca-cert
+        key: ca.password

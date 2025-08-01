@@ -1,0 +1,10 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: prod-test-topic
+  namespace: prod # The same namespace as your Kafka cluster
+  labels:
+    strimzi.io/cluster: prod-kafka # The name of your Kafka cluster
+spec:
+  partitions: 3
+  replicas: 2

@@ -1,0 +1,192 @@
+# In your Helm values.yaml or Kubernetes deployment manifest
+extraVolumes:
+  # Volume for the Kafka Cluster's Certificate Authority (Truststore)
+  - name: dev-kafka-cluster-ca-volume
+    secret:
+      secretName: dev-kafka-cluster-ca-cert
+      optional: false
+
+  # Volume for the AKHQ client's credentials (Keystore)
+  - name: dev-akhq-client-credentials-volume
+    secret:
+      # This secret MUST contain the 'user.p12' and 'user.key' files
+      secretName: akhq-user-dev
+      optional: false
+
+  - name: prod-kafka-cluster-ca-volume
+    secret:
+      secretName: prod-kafka-cluster-ca-cert
+      optional: false
+
+  - name: prod-akhq-client-credentials-volume
+    secret:
+      secretName: akhq-user-prod
+      optional: false
+  - name: akhq-user-prod-pass
+    secret:
+        secretName: akhq-user-prod
+        optional: false
+
+extraVolumeMounts:
+  - name: akhq-user-prod-pass
+    mountPath: /app/secrets/prod
+    readOnly: true
+  - name: prod-kafka-cluster-ca-volume
+    mountPath: /app/certs/prod/truststore/
+    readOnly: true
+
+  - name: prod-akhq-client-credentials-volume
+    mountPath: /app/certs/prod/keystore/
+    readOnly: true
+
+  - name: dev-kafka-cluster-ca-volume
+    mountPath: /app/certs/dev/truststore/
+    readOnly: true
+    
+  - name: dev-akhq-client-credentials-volume
+    mountPath: /app/certs/dev/keystore/
+    readOnly: true
+
+# This is the correct key based on the documentation you provided
+extraEnv:
+  - name: KEYSTORE_PASS_dev
+    valueFrom:
+      secretKeyRef:
+        # The name of the user secret IN THE management-ui NAMESPACE
+        name: akhq-user-dev
+        # The key within that secret that holds the password
+        key: user.password
+  - name: TRUSTSTORE_PASS_dev
+    valueFrom:
+      secretKeyRef:
+        # The name of the CA secret IN THE management-ui NAMESPACE
+        name: dev-kafka-cluster-ca-cert
+        # The key within that secret that holds the password
+        key: ca.password
+  - name: KEYSTORE_PASS_prod
+    valueFrom:
+      secretKeyRef:
+        # The name of the user secret IN THE management-ui NAMESPACE
+        name: akhq-user-prod
+        # The key within that secret that holds the password
+        key: password
+  - name: TRUSTSTORE_PASS_prod
+    valueFrom:
+      secretKeyRef:
+        # The name of the CA secret IN THE management-ui NAMESPACE
+        name: prod-kafka-cluster-ca-cert
+        # The key within that secret that holds the password
+        key: ca.password
+  - name: AKHQ_USER_PROD_PASS
+    valueFrom:
+      secretKeyRef:
+        # The name of the user secret IN THE management-ui NAMESPACE
+        name: akhq-user-prod
+        # The key within that secret that holds the password
+        key: password
+  - name: MICRONAUT_SECURITY_TOKEN_JWT_SIGNATURES_SECRET_GENERATOR_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: akhq-jwt-secret
+        key: jwt-key
+
+# In your AKHQ Helm values.yaml
+configuration:
+  micronaut:
+    security:
+      enabled: true
+      token:
+        jwt:
+          signatures:
+            secret:
+              generator:
+                # secret: "${jwt-key}"
+  logger:
+    levels:
+      io.micronaut.security: DEBUG # Add or set this to DEBUG
+      org.akhq: DEBUG              # Good to have this as well
+  akhq:
+    connections:
+      dev-kafka:
+        properties:
+          bootstrap.servers: "dev-kafka-kafka-tls-bootstrap.dev:9093"
+          security.protocol: SSL
+          
+          # Path to the mounted Cluster CA truststore
+          ssl.truststore.location: /app/certs/dev/truststore/ca.p12
+          # Use the environment variable here
+          ssl.truststore.password: ${TRUSTSTORE_PASS_dev}
+          ssl.truststore.type: PKCS12
+          
+          # Path to the mounted client keystore
+          ssl.keystore.location: /app/certs/dev/keystore/user.p12
+          # Use the environment variable here
+          ssl.keystore.password: ${KEYSTORE_PASS_dev}
+          ssl.keystore.type: PKCS12
+        # --- ADD THIS BLOCK ---
+        # schema-registry:
+        #   # The internal Kubernetes service URL for Apicurio
+        #   url: "http://dev-schema-apicurio-registry.management-ui.svc.cluster.local:8080/apis/ccompat/v7"
+      prod-kafka:
+        properties:
+          bootstrap.servers: "prod-kafka-kafka-plain-bootstrap.prod:9092"
+          sasl.mechanism: "SCRAM-SHA-512"
+          security.protocol: "SASL_PLAINTEXT"
+          sasl.jaas.config: "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"akhq-user-prod\" password=\"${AKHQ_USER_PROD_PASS}\";"
+          # schema-registry:
+          #   url: "http://dev-schema-apicurio-registry.kafka-tools.svc.cluster.local:8080/apis/ccompat/v7"
+
+            # security.protocol: SSL
+            
+            # ssl.truststore.location: /app/certs/prod/truststore/ca.p12
+            # ssl.truststore.password: ${TRUSTSTORE_PASS_prod}
+            # ssl.truststore.type: PKCS12
+            
+            # ssl.keystore.location: /app/certs/prod/keystore/user.p12
+            # ssl.keystore.password: ${KEYSTORE_PASS_prod}
+            # ssl.keystore.type: PKCS12
+      prod_kafka_tls:
+        properties:
+          bootstrap.servers: "prod-kafka-kafka-internal-bootstrap.prod:9093"
+          sasl.mechanism: "SCRAM-SHA-512"
+          security.protocol: "SASL_SSL"
+          sasl.jaas.config: "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"akhq-user-prod\" password=\"${AKHQ_USER_PROD_PASS}\";"
+          
+          ssl.truststore.location: /app/certs/prod/truststore/ca.p12
+          ssl.truststore.password: ${TRUSTSTORE_PASS_prod}
+          ssl.truststore.type: PKCS12
+        schema-registry:
+          # The internal Kubernetes service URL for Apicurio
+          url: "http://dev-schema-apicurio-registry.management-ui.svc.cluster.local:8080/apis/ccompat/v7"
+    security: # For UI authentication
+
+      default-group: reader
+      roles:
+        # A role with all possible permissions.
+        admin-role:
+          - resources: [ "TOPIC", "NODE", "CONSUMER_GROUP", "SCHEMA", "CONNECT_CLUSTER", "TOPIC_DATA", "ACL", "KSQLDB", "CONNECTOR" ]
+            actions: [ "READ", "CREATE", "UPDATE", "DELETE", "UPDATE_OFFSET", "DELETE_OFFSET", "READ_CONFIG", "ALTER_CONFIG", "DELETE_VERSION", "UPDATE_STATE", "EXECUTE" ]
+
+        # A role for read-only access.
+        reader-role:
+          - resources: [ "TOPIC", "NODE", "CONSUMER_GROUP", "SCHEMA", "CONNECT_CLUSTER", "TOPIC_DATA", "ACL", "KSQLDB", "CONNECTOR" ]
+            actions: [ "READ", "READ_CONFIG" ]
+
+      groups:
+        groupRead:
+          - role: reader-role
+        groupAdmin:
+          - role: admin-role
+
+      basic-auth:
+      - username: "user1"
+        # The SHA-256 hash of the user's password
+        password: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+        groups:
+          - "groupRead"
+      - username: "user2"
+        # The SHA-256 hash of the user's password
+        password: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+        groups:
+          - "groupAdmin"
+

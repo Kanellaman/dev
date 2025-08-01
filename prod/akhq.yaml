@@ -1,0 +1,42 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: akhq-user-prod
+  namespace: prod
+  labels:
+    strimzi.io/cluster: prod-kafka
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      # Host from which the user can connect
+      - host: '*'
+        # Operations on all Topics
+        resource:
+          type: topic
+          name: '*'
+          patternType: literal
+        operation: All
+      # Operations on all Consumer Groups
+      - host: '*'
+        resource:
+          type: group
+          name: '*'
+          patternType: literal
+        operation: All
+      # Read-only access to the cluster-level resources
+      - host: '*'
+        resource:
+          type: cluster
+          name: kafka-cluster
+          patternType: literal
+        operation: Describe
+      # Required for AKHQ to read broker configurations
+      - host: '*'
+        resource:
+          type: cluster
+          name: kafka-cluster
+          patternType: literal
+        operation: DescribeConfigs

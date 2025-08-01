@@ -1,0 +1,54 @@
+# apicurio-values.yaml
+
+# Configure the application settings
+configuration:
+  # Use Kafka for persistence
+  persistence: "kafka"
+  # Define the connection properties for your Strimzi cluster
+  kafka:
+    bootstrap:
+      servers: "dev-kafka-kafka-tls-bootstrap.dev.svc.cluster.local:9093"
+    security:
+      protocol: "SSL"
+    ssl:
+      # Keystore settings using the client's secret
+      keystore:
+        location: "/etc/keystore/user.p12"
+        password: "${env.KEYSTORE_PASSWORD}"
+        type: "PKCS12"
+      # Truststore settings using the cluster's CA secret
+      truststore:
+        location: "/etc/truststore/ca.p12"
+        password: "${env.TRUSTSTORE_PASSWORD}"
+        type: "PKCS12"
+
+# Mount your two secrets into the Apicurio pod
+extraVolumes:
+  - name: keystore-volume
+    secret:
+      secretName: akhq-user-dev
+  - name: truststore-volume
+    secret:
+      secretName: dev-kafka-cluster-ca-cert
+
+# Define the mount paths inside the container
+extraVolumeMounts:
+  - name: keystore-volume
+    mountPath: "/etc/keystore"
+    readOnly: true
+  - name: truststore-volume
+    mountPath: "/etc/truststore"
+    readOnly: true
+
+# Provide the passwords from secrets as environment variables
+extraEnv:
+  - name: KEYSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: akhq-user-dev
+        key: user.password
+  - name: TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: dev-kafka-cluster-ca-cert
+        key: ca.password
